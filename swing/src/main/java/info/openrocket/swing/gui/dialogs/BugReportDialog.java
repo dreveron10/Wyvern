@@ -45,9 +45,8 @@ import info.openrocket.swing.logging.LoggingSystemSetup;
 @SuppressWarnings("serial")
 public class BugReportDialog extends JDialog {
 	
-	private static final String NEW_ISSUES_URL = "https://github.com/openrocket/openrocket/issues/new";
-	private static final String REPORT_EMAIL = "openrocket-bugs@lists.sourceforge.net";
-	private static final String REPORT_EMAIL_URL = "mailto:" + REPORT_EMAIL;
+	// Wyvern bugs go to the Wyvern repo, not to the OpenRocket developers
+	private static final String NEW_ISSUES_URL = "https://github.com/dreveron10/wyvern/issues/new";
 	
 	private static final Translator trans = Application.getTranslator();
 	private static final SwingPreferences preferences = (SwingPreferences) Application.getPreferences();
@@ -84,11 +83,6 @@ public class BugReportDialog extends JDialog {
 		panel.add(label, "gapleft para, split 2, gapright rel");
 		
 		panel.add(new URLLabel(NEW_ISSUES_URL), "growx, wrap para");
-		
-		//// Otherwise, send the text below to the address:
-		panel.add(new JLabel(trans.get("bugreport.dlg.otherwise") + " "),
-				  "gapleft para, split 2, gapright rel");
-		panel.add(new URLLabel(REPORT_EMAIL_URL, REPORT_EMAIL), "growx, wrap para");
 
 		final JEditorPane editorPane = new JEditorPane("text/html", formatNewlineHTML(message));
 		editorPane.putClientProperty(JTextPane.HONOR_DISPLAY_PROPERTIES, true);

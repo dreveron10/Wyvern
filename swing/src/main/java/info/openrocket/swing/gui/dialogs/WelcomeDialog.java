@@ -47,7 +47,7 @@ public class WelcomeDialog extends JDialog {
                 "spany, top, gapright 20px, cell 0 0");
 
         //	Thank you for downloading!
-        panel.add(new StyledLabel(trans.get("welcome.dlg.lbl.thankYou") + " " + BuildProperties.getVersion() + "!",
+        panel.add(new StyledLabel(trans.get("welcome.dlg.lbl.thankYou") + " " + BuildProperties.getWyvernVersion() + "!",
                 2, StyledLabel.Style.BOLD), "spanx, wrap");
 
         // See the release notes below for what's new

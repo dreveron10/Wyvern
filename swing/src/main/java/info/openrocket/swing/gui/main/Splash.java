@@ -62,7 +62,8 @@ public class Splash {
 	
 	
 	private static void drawVersionNumber(Graphics2D g2) {
-		String text = "Version " + BuildProperties.getVersion();
+		String text = "Version " + BuildProperties.getWyvernVersion()
+				+ " (OpenRocket " + BuildProperties.getVersion() + ")";
 		GlyphVector gv = VERSION_FONT.createGlyphVector(g2.getFontRenderContext(), text);
 		
 		Rectangle2D rect = gv.getVisualBounds();

@@ -26,6 +26,7 @@ import info.openrocket.core.util.Chars;
 public class AboutDialog extends JDialog {
 	
 	public final String OPENROCKET_URL = "http://openrocket.info/";
+	public final String WYVERN_URL = "https://github.com/dreveron10/wyvern";
 
 	private final Translator trans = Application.getTranslator();
 	
@@ -102,21 +103,25 @@ public class AboutDialog extends JDialog {
 		super(parent, true);
 		
 		final String version = BuildProperties.getVersion();
+		final String wyvernVersion = BuildProperties.getWyvernVersion();
 		final String copyrightYear = BuildProperties.getCopyrightYear();
 		
 		JPanel panel = new JPanel(new MigLayout("fill"));
 		JPanel sub;
 		
 		
-		// OpenRocket logo
-		panel.add(new JLabel(Icons.loadImageIcon("pix/icon/icon-128.png", "OpenRocket")), "top");
+		// Wyvern logo
+		panel.add(new JLabel(Icons.loadImageIcon("pix/icon/icon-128.png", "Wyvern")), "top");
 		
 		
-		// OpenRocket version info + copyright
+		// Wyvern version info, then the OpenRocket version and copyright it is based on
 		sub = new JPanel(new MigLayout("fill"));
 		
-		sub.add(new StyledLabel("OpenRocket", 20), "ax 50%, growy, wrap para");
-		sub.add(new StyledLabel(trans.get("lbl.version").trim() + " " + version, 3), "ax 50%, growy, wrap rel");
+		sub.add(new StyledLabel("Wyvern", 20), "ax 50%, growy, wrap para");
+		sub.add(new StyledLabel(trans.get("lbl.version").trim() + " " + wyvernVersion, 3), "ax 50%, growy, wrap rel");
+		sub.add(new URLLabel(WYVERN_URL), "ax 50%, growy, wrap para");
+		
+		sub.add(new StyledLabel("Based on OpenRocket " + version), "ax 50%, growy, wrap rel");
 		String copyright = String.format("Copyright %c 2007-%s Sampo Niskanen and others", Chars.COPY, copyrightYear);
 		sub.add(new StyledLabel(copyright), "ax 50%, growy, wrap para");
 		

@@ -416,7 +416,7 @@ public class GUIUtil {
 		if (theme instanceof UITheme.Theme) {
 			return (UITheme.Theme) theme;
 		}
-		return UITheme.Themes.LIGHT;
+		return UITheme.Themes.DARK;
 	}
 
 	public static void setUITheme(UITheme.Theme theme) {

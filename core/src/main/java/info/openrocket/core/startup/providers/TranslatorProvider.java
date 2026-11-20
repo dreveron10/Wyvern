@@ -80,7 +80,8 @@ public class TranslatorProvider implements Provider<Translator> {
 			return null;
 		}
 		
-		return L10N.toLocale(Preferences.userRoot().node("OpenRocket").get("locale", null));
+		// Must match SwingPreferences.NODENAME
+		return L10N.toLocale(Preferences.userRoot().node("Wyvern").get("locale", null));
 	}
 	
 	

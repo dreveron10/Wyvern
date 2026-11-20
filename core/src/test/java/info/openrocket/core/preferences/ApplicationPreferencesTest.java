@@ -22,6 +22,7 @@ import info.openrocket.core.l10n.Translator;
 import info.openrocket.core.plugin.PluginModule;
 import info.openrocket.core.startup.Application;
 import info.openrocket.core.startup.MockPreferences;
+import info.openrocket.core.util.BuildProperties;
 import info.openrocket.core.util.MathUtil;
 
 public class ApplicationPreferencesTest {
@@ -115,7 +116,7 @@ public class ApplicationPreferencesTest {
     }
 
     @Test
-    @DisplayName("update check permission is unset until answered and controls both automatic checks")
+    @DisplayName("update check permission is unset until answered; allowing enables motor database checks, program checks follow the build default")
     public void testUpdateCheckPermission() {
         assertFalse(prefs.isUpdateCheckPermissionSet());
 
@@ -127,7 +128,8 @@ public class ApplicationPreferencesTest {
 
         prefs.setUpdateCheckPermission(true);
 
-        assertTrue(prefs.getCheckUpdates());
+        assertEquals(BuildProperties.getDefaultCheckUpdates(), prefs.getCheckUpdates());
+        assertFalse(prefs.getCheckUpdates(), "Wyvern ships with OpenRocket program update checks off");
         assertTrue(prefs.getCheckMotorDatabaseUpdates());
     }
 

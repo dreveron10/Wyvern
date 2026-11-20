@@ -111,9 +111,10 @@ public class SwingPreferences extends ApplicationPreferences {
 	private static final boolean CLEARPREFS = true;
 	
 	/**
-	 * The node name to use in the Java preferences storage.
+	 * The node name to use in the Java preferences storage. Wyvern uses its own node
+	 * so its settings do not mix with an installed OpenRocket.
 	 */
-	private static final String NODENAME = (DEBUG ? "OpenRocket-debug" : "OpenRocket");
+	private static final String NODENAME = (DEBUG ? "Wyvern-debug" : "Wyvern");
 	
 	private Preferences PREFNODE;
 
@@ -439,12 +440,12 @@ public class SwingPreferences extends ApplicationPreferences {
 	}
 
 	private UITheme.Theme getUIThemeAsTheme() {
-		String themeName = getString(ApplicationPreferences.UI_THEME, UITheme.Themes.LIGHT.name());
-		if (themeName == null) return UITheme.Themes.LIGHT;		// Default theme
+		String themeName = getString(ApplicationPreferences.UI_THEME, UITheme.Themes.DARK.name());
+		if (themeName == null) return UITheme.Themes.DARK;		// Default theme
 		try {
 			return UITheme.Themes.valueOf(themeName);
 		} catch (IllegalArgumentException e) {
-			return UITheme.Themes.LIGHT;
+			return UITheme.Themes.DARK;
 		}
 	}
 

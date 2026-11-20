@@ -9,6 +9,7 @@ public class BuildProperties {
 
 	private static final Properties PROPERTIES;
 	private static final String BUILD_VERSION;
+	private static final String WYVERN_VERSION;
 	private static final String BUILD_COPYRIGHT;
 	private static final String BUILD_SOURCE;
 	private static final boolean DEFAULT_CHECK_UPDATES;
@@ -19,6 +20,14 @@ public class BuildProperties {
 	 */
 	public static String getVersion() {
 		return BUILD_VERSION;
+	}
+
+	/**
+	 * Return the Wyvern version number shown to users. {@link #getVersion()} stays
+	 * the OpenRocket version Wyvern is based on.
+	 */
+	public static String getWyvernVersion() {
+		return WYVERN_VERSION;
 	}
 
 	/**
@@ -61,6 +70,7 @@ public class BuildProperties {
 						"build.properties", "build.version");
 			}
 			BUILD_VERSION = version.trim();
+			WYVERN_VERSION = PROPERTIES.getProperty("wyvern.version", "unknown").trim();
 
 			BUILD_SOURCE = PROPERTIES.getProperty("build.source");
 			if (BUILD_SOURCE == null) {

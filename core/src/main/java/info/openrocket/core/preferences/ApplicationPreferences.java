@@ -365,7 +365,9 @@ public abstract class ApplicationPreferences implements ChangeSource, ORPreferen
 	 * @param allowed {@code true} to enable automatic software and motor-database update checks
 	 */
 	public final void setUpdateCheckPermission(boolean allowed) {
-		this.setCheckUpdates(allowed);
+		// Wyvern: program update checks look for OpenRocket releases, so they stay
+		// off unless build.properties enables them. Motor database checks still follow the answer.
+		this.setCheckUpdates(allowed && BuildProperties.getDefaultCheckUpdates());
 		this.setCheckMotorDatabaseUpdates(allowed);
 		this.putBoolean(UPDATE_CHECK_PERMISSION, allowed);
 	}

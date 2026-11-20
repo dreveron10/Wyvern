@@ -1,12 +1,13 @@
 name: Release
 
-# Pushing a tag like v0.1.0 or v0.1.0-test1 builds the universal JAR and
-# publishes it as a GitHub release, so it can be downloaded without signing in.
-# Tags with a dash (v0.1.0-test1) are marked as pre-releases.
+# Pushing a branch named release/<tag> (for example release/v0.1.0 or
+# release/v0.1.0-test1) builds the universal JAR and publishes it as a GitHub
+# release with that tag, so it can be downloaded without signing in. GitHub
+# creates the tag on the pushed commit. Tags with a dash are pre-releases.
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - 'release/**'
 
 permissions:
   contents: write
@@ -33,13 +34,14 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          BRANCH: ${{ github.ref_name }}
         run: |
+          TAG="${BRANCH#release/}"
           version=$(sed -n 's/^wyvern\.version=//p' core/src/main/resources/build.properties | tr -d '[:space:]')
           base=$(sed -n 's/^build\.version=//p' core/src/main/resources/build.properties | tr -d '[:space:]')
           cp "build/libs/OpenRocket-$base.jar" "Wyvern-$version.jar"
           flags=()
           if [[ "$TAG" == *-* ]]; then flags+=(--prerelease); fi
-          gh release create "$TAG" "Wyvern-$version.jar" "${flags[@]}" \
+          gh release create "$TAG" "Wyvern-$version.jar" "${flags[@]}" --target "$GITHUB_SHA" \
             --title "Wyvern $version ($TAG)" \
             --notes "Wyvern $version, based on OpenRocket $base. Needs Java 17 or newer: run with java -jar Wyvern-$version.jar"

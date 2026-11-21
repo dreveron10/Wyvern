@@ -44,7 +44,7 @@ public class FlightLogTest {
 	}
 
 	private static String fluctus(boolean events) {
-		StringBuilder sb = new StringBuilder("﻿Time,Altitude,Pressure,Velocity,Events\r\n");
+		StringBuilder sb = new StringBuilder("\uFEFFTime,Altitude,Pressure,Velocity,Events\r\n");
 		for (int i = 0; i <= 870; i++) {
 			double t = i / 10.0;
 			String event = !events ? "-" : i == 100 ? "Drogue" : i == 420 ? "Main" : "-";

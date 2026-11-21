@@ -58,7 +58,7 @@ public final class FlightLogReader {
 
 	/** Split a header or data row on commas, trimming cells and a leading byte order mark. */
 	public static List<String> cells(String line) {
-		String clean = line.startsWith("﻿") ? line.substring(1) : line;
+		String clean = line.startsWith("\uFEFF") ? line.substring(1) : line;
 		List<String> cells = new ArrayList<>();
 		for (String cell : clean.split(",", -1)) {
 			String c = cell.trim();

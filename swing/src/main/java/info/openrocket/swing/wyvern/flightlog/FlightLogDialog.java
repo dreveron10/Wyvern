@@ -198,8 +198,8 @@ public class FlightLogDialog extends JDialog {
 	}
 
 	private String legend() {
-		return "<html><font color='#56B4E9'>━━</font> " + trans.get("Wyvern.flightlog.col.simulation")
-				+ " &nbsp;&nbsp; <font color='#E69F00'>┅┅</font> " + trans.get("Wyvern.flightlog.col.flight")
+		return "<html><font color='#56B4E9'>\u2501\u2501</font> " + trans.get("Wyvern.flightlog.col.simulation")
+				+ " &nbsp;&nbsp; <font color='#E69F00'>\u2505\u2505</font> " + trans.get("Wyvern.flightlog.col.flight")
 				+ " (" + trans.get("Wyvern.flightlog.lbl.dashed") + ")</html>";
 	}
 
@@ -412,7 +412,7 @@ public class FlightLogDialog extends JDialog {
 			if (Math.abs(delta) < 1e-6 * Math.max(1, Math.abs(simulation))) {
 				delta = 0;
 			}
-			difference = (delta >= 0 ? "+" : "−") + format(Math.abs(delta), unit);
+			difference = (delta > 0 ? "+" : delta < 0 ? "\u2212" : "") + format(Math.abs(delta), unit);
 			if (Math.abs(simulation) > 1e-9) {
 				percent = String.format(Locale.ROOT, "%+.1f%%", 100 * delta / simulation);
 			}
@@ -423,7 +423,7 @@ public class FlightLogDialog extends JDialog {
 
 	private static String format(double value, Unit unit) {
 		if (Double.isNaN(value)) {
-			return "–";
+			return "-";
 		}
 		return unit == null ? String.format(Locale.ROOT, "%.2f s", value) : unit.toStringUnit(value);
 	}

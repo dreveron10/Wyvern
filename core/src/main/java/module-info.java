@@ -104,6 +104,7 @@ open module info.openrocket.core {
 	exports info.openrocket.core.wyvern.map;
 	exports info.openrocket.core.wyvern.recovery;
 	exports info.openrocket.core.wyvern.rules;
+	exports info.openrocket.core.wyvern.wind;
 	exports info.openrocket.core.util.enums;
 	exports info.openrocket.core.utils;
 	exports info.openrocket.core.preferences;

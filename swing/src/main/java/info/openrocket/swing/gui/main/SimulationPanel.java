@@ -98,6 +98,7 @@ import info.openrocket.swing.gui.util.Icons;
 import info.openrocket.swing.gui.widgets.IconButton;
 import info.openrocket.swing.wyvern.flightlog.FlightLogDialog;
 import info.openrocket.swing.wyvern.recovery.RecoveryDialog;
+import info.openrocket.swing.wyvern.wind.WindForecastDialog;
 import info.openrocket.swing.file.SimulationTableCSVExport;
 import info.openrocket.swing.utils.TableRowTraversalPolicy;
 
@@ -237,20 +238,6 @@ public class SimulationPanel extends JPanel {
 		landingDispersionButton.setToolTipText(trans.get("simpanel.but.ttip.landingDispersion"));
 		this.add(landingDispersionButton, "gapright para");
 
-		//// Wyvern: recovery analysis of the selected simulation
-		JButton recoveryButton = new IconButton(trans.get("Wyvern.recovery.but.open"), Icons.SIM_PLOT);
-		recoveryButton.setToolTipText(trans.get("Wyvern.recovery.but.open.ttip"));
-		recoveryButton.addActionListener(e -> RecoveryDialog.show(
-				SwingUtilities.getWindowAncestor(this), document, getSelectedSimulations()));
-		this.add(recoveryButton, "gapright rel");
-
-		//// Wyvern: overlay an altimeter log on the selected simulation
-		JButton flightLogButton = new IconButton(trans.get("Wyvern.flightlog.but.openDialog"), Icons.SIM_PLOT);
-		flightLogButton.setToolTipText(trans.get("Wyvern.flightlog.but.openDialog.ttip"));
-		flightLogButton.addActionListener(e -> FlightLogDialog.show(
-				SwingUtilities.getWindowAncestor(this), getSelectedSimulations()));
-		this.add(flightLogButton, "gapright para");
-
 		//// Delete simulations button
 		deleteButton = new IconButton();
 		RocketActions.tieActionToButton(deleteButton, deleteSimulationAction, trans.get("simpanel.but.deletesimulations"));
@@ -260,7 +247,26 @@ public class SimulationPanel extends JPanel {
 		//// Plot / export button
 		plotButton = new IconButton();
 		RocketActions.tieActionToButton(plotButton, plotSimulationAction, trans.get("simpanel.but.plotexport"));
-		this.add(plotButton, "wrap para");
+		this.add(plotButton, "wrap rel");
+
+		//// Wyvern tools for the selected simulation, on their own row
+		JPanel wyvernRow = new JPanel(new MigLayout("ins 0"));
+		JButton recoveryButton = new IconButton(trans.get("Wyvern.recovery.but.open"), Icons.SIM_PLOT);
+		recoveryButton.setToolTipText(trans.get("Wyvern.recovery.but.open.ttip"));
+		recoveryButton.addActionListener(e -> RecoveryDialog.show(
+				SwingUtilities.getWindowAncestor(this), document, getSelectedSimulations()));
+		wyvernRow.add(recoveryButton, "gapright para");
+		JButton flightLogButton = new IconButton(trans.get("Wyvern.flightlog.but.openDialog"), Icons.SIM_PLOT);
+		flightLogButton.setToolTipText(trans.get("Wyvern.flightlog.but.openDialog.ttip"));
+		flightLogButton.addActionListener(e -> FlightLogDialog.show(
+				SwingUtilities.getWindowAncestor(this), getSelectedSimulations()));
+		wyvernRow.add(flightLogButton, "gapright para");
+		JButton windButton = new IconButton(trans.get("Wyvern.wind.but.open"), Icons.SIM_PLOT);
+		windButton.setToolTipText(trans.get("Wyvern.wind.but.open.ttip"));
+		windButton.addActionListener(e -> WindForecastDialog.show(
+				SwingUtilities.getWindowAncestor(this), getSelectedSimulations()));
+		wyvernRow.add(windButton);
+		this.add(wyvernRow, "spanx, center, wrap para");
 
 		//// Run then Dump simulations
 		simTableExportButton = new IconButton();

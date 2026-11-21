@@ -197,6 +197,27 @@ public class MapPanel extends JPanel {
 		return 1.0 / GeoMath.metersPerPixel(centerLatitude, zoom);
 	}
 
+	/**
+	 * Tiles that cover the current view at a zoom level, as {zoom, x, y} triples.
+	 * Tiles outside the world are left out.
+	 */
+	public List<int[]> visibleTiles(int tileZoom) {
+		double[] topLeft = toGeo(0, 0);
+		double[] bottomRight = toGeo(getWidth(), getHeight());
+		int n = 1 << tileZoom;
+		int firstX = (int) Math.floor(GeoMath.worldX(topLeft[1], tileZoom) / GeoMath.TILE_SIZE);
+		int lastX = (int) Math.floor(GeoMath.worldX(bottomRight[1], tileZoom) / GeoMath.TILE_SIZE);
+		int firstY = (int) Math.floor(GeoMath.worldY(topLeft[0], tileZoom) / GeoMath.TILE_SIZE);
+		int lastY = (int) Math.floor(GeoMath.worldY(bottomRight[0], tileZoom) / GeoMath.TILE_SIZE);
+		List<int[]> result = new ArrayList<>();
+		for (int x = firstX; x <= lastX; x++) {
+			for (int y = Math.max(firstY, 0); y <= Math.min(lastY, n - 1); y++) {
+				result.add(new int[] { tileZoom, ((x % n) + n) % n, y });
+			}
+		}
+		return result;
+	}
+
 	/** Render the current view, with all layers, into an image. */
 	public BufferedImage snapshot() {
 		BufferedImage image = new BufferedImage(Math.max(getWidth(), 1), Math.max(getHeight(), 1),

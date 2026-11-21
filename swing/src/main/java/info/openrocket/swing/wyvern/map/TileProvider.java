@@ -116,6 +116,30 @@ public class TileProvider {
 		return null;
 	}
 
+	/**
+	 * Download tiles to the disk cache so they are available without a connection.
+	 * Tiles already cached and fresh are not downloaded again.
+	 *
+	 * @param tileCoordinates {zoom, x, y} triples
+	 * @param onProgress      called on the event dispatch thread after each tile with
+	 *                        {done, available}, where available counts tiles now on disk
+	 */
+	public void prefetch(java.util.List<int[]> tileCoordinates, java.util.function.Consumer<int[]> onProgress) {
+		java.util.concurrent.atomic.AtomicInteger done = new java.util.concurrent.atomic.AtomicInteger();
+		java.util.concurrent.atomic.AtomicInteger available = new java.util.concurrent.atomic.AtomicInteger();
+		for (int[] t : tileCoordinates) {
+			executor.execute(() -> {
+				BufferedImage image = load(t[0], t[1], t[2]);
+				if (image != null) {
+					memory.put(t[0] + "/" + t[1] + "/" + t[2], image);
+					available.incrementAndGet();
+				}
+				int[] progress = { done.incrementAndGet(), available.get() };
+				SwingUtilities.invokeLater(() -> onProgress.accept(progress));
+			});
+		}
+	}
+
 	private BufferedImage load(int zoom, int x, int y) {
 		File file = new File(cacheDir, zoom + File.separator + x + File.separator + y + ".png");
 		boolean cached = file.isFile();

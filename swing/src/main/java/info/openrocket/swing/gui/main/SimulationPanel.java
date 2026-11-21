@@ -96,6 +96,7 @@ import info.openrocket.swing.gui.components.StyledLabel;
 import info.openrocket.swing.gui.simulation.SimulationRunDialog;
 import info.openrocket.swing.gui.util.Icons;
 import info.openrocket.swing.gui.widgets.IconButton;
+import info.openrocket.swing.wyvern.recovery.RecoveryDialog;
 import info.openrocket.swing.file.SimulationTableCSVExport;
 import info.openrocket.swing.utils.TableRowTraversalPolicy;
 
@@ -234,6 +235,13 @@ public class SimulationPanel extends JPanel {
 				trans.get("simpanel.but.landingDispersion"));
 		landingDispersionButton.setToolTipText(trans.get("simpanel.but.ttip.landingDispersion"));
 		this.add(landingDispersionButton, "gapright para");
+
+		//// Wyvern: recovery analysis of the selected simulation
+		JButton recoveryButton = new IconButton(trans.get("Wyvern.recovery.but.open"), Icons.SIM_PLOT);
+		recoveryButton.setToolTipText(trans.get("Wyvern.recovery.but.open.ttip"));
+		recoveryButton.addActionListener(e -> RecoveryDialog.show(
+				SwingUtilities.getWindowAncestor(this), document, getSelectedSimulations()));
+		this.add(recoveryButton, "gapright para");
 
 		//// Delete simulations button
 		deleteButton = new IconButton();

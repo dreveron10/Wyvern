@@ -440,12 +440,12 @@ public class SwingPreferences extends ApplicationPreferences {
 	}
 
 	private UITheme.Theme getUIThemeAsTheme() {
-		String themeName = getString(ApplicationPreferences.UI_THEME, UITheme.Themes.DARK.name());
-		if (themeName == null) return UITheme.Themes.DARK;		// Default theme
+		String themeName = getString(ApplicationPreferences.UI_THEME, UITheme.Themes.WYVERN.name());
+		if (themeName == null) return UITheme.Themes.WYVERN;		// Default theme
 		try {
 			return UITheme.Themes.valueOf(themeName);
 		} catch (IllegalArgumentException e) {
-			return UITheme.Themes.DARK;
+			return UITheme.Themes.WYVERN;
 		}
 	}
 

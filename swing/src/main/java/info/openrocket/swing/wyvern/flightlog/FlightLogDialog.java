@@ -11,9 +11,12 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
@@ -25,6 +28,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTable;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
@@ -43,17 +47,23 @@ import org.jfree.chart.ui.TextAnchor;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 
+import info.openrocket.core.document.OpenRocketDocument;
 import info.openrocket.core.document.Simulation;
 import info.openrocket.core.l10n.Translator;
+import info.openrocket.core.rocketcomponent.RecoveryDevice;
+import info.openrocket.core.rocketcomponent.RocketComponent;
 import info.openrocket.core.simulation.FlightData;
+import info.openrocket.core.simulation.FlightEvent;
 import info.openrocket.core.startup.Application;
 import info.openrocket.core.unit.Unit;
 import info.openrocket.core.unit.UnitGroup;
+import info.openrocket.core.wyvern.calibration.Calibration;
 import info.openrocket.core.wyvern.flightlog.FlightLog;
 import info.openrocket.core.wyvern.flightlog.FlightLogReader;
 import info.openrocket.core.wyvern.flightlog.FlightLogReader.ColumnMapping;
 import info.openrocket.core.wyvern.flightlog.FlightLogStats;
 import info.openrocket.core.wyvern.flightlog.SimulationLog;
+import info.openrocket.swing.gui.simulation.SimulationRunDialog;
 import info.openrocket.swing.gui.util.GUIUtil;
 
 /**
@@ -73,8 +83,9 @@ public class FlightLogDialog extends JDialog {
 	private final Unit distanceUnit = UnitGroup.UNITS_DISTANCE.getDefaultUnit();
 	private final Unit velocityUnit = UnitGroup.UNITS_VELOCITY.getDefaultUnit();
 
-	private final FlightLog simulated;
-	private final FlightLogStats simulatedStats;
+	private final OpenRocketDocument document;
+	private final Simulation simulation;
+	private FlightLogStats simulatedStats;
 	private FlightLog flight;
 	private FlightLogStats flightStats;
 
@@ -91,13 +102,23 @@ public class FlightLogDialog extends JDialog {
 	private final JButton alignButton = new JButton(trans.get("Wyvern.flightlog.but.align"));
 	private final DefaultTableModel tableModel;
 
+	private final JLabel dragLabel = new JLabel();
+	private final JLabel chuteLabel = new JLabel();
+	private final JButton findDragButton = new JButton(trans.get("Wyvern.calibration.but.findDrag"));
+	private final JButton useDragButton = new JButton(trans.get("Wyvern.calibration.but.useDrag"));
+	private final JButton applyChutesButton = new JButton(trans.get("Wyvern.calibration.but.applyChutes"));
+	private final List<RecoveryDevice> chuteDevices = new ArrayList<>();
+	private final List<Double> chuteCds = new ArrayList<>();
+	private double dragScale = Double.NaN;
+
 	/**
 	 * Open the overlay for a simulation, or tell the user why it cannot be opened.
 	 *
 	 * @param owner       the parent window
+	 * @param document    the document the simulation belongs to
 	 * @param simulations the simulations selected in the simulation table
 	 */
-	public static void show(Window owner, Simulation[] simulations) {
+	public static void show(Window owner, OpenRocketDocument document, Simulation[] simulations) {
 		if (simulations == null || simulations.length != 1) {
 			JOptionPane.showMessageDialog(owner, trans.get("Wyvern.flightlog.msg.selectOne"),
 					trans.get("Wyvern.flightlog.title"), JOptionPane.INFORMATION_MESSAGE);
@@ -109,26 +130,21 @@ public class FlightLogDialog extends JDialog {
 					trans.get("Wyvern.flightlog.title"), JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
-		FlightLog simulated;
 		try {
-			simulated = SimulationLog.of(data.getBranch(0));
+			SimulationLog.of(data.getBranch(0));
 		} catch (IllegalArgumentException e) {
 			JOptionPane.showMessageDialog(owner, trans.get("Wyvern.flightlog.msg.runFirst"),
 					trans.get("Wyvern.flightlog.title"), JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
-		new FlightLogDialog(owner, simulations[0].getName(), simulated).setVisible(true);
+		new FlightLogDialog(owner, document, simulations[0]).setVisible(true);
 	}
 
-	private FlightLogDialog(Window owner, String simulationName, FlightLog simulated) {
-		super(owner, trans.get("Wyvern.flightlog.title") + " - " + simulationName, ModalityType.MODELESS);
-		this.simulated = simulated;
-		this.simulatedStats = FlightLogStats.of(simulated);
-
-		for (int i = 0; i < simulated.size(); i++) {
-			simAltitude.add(simulated.getTime(i), distanceUnit.toUnit(simulated.getAltitude(i)), false);
-			simVelocity.add(simulated.getTime(i), velocityUnit.toUnit(simulated.getVelocity(i)), false);
-		}
+	private FlightLogDialog(Window owner, OpenRocketDocument document, Simulation simulation) {
+		super(owner, trans.get("Wyvern.flightlog.title") + " - " + simulation.getName(), ModalityType.MODELESS);
+		this.document = document;
+		this.simulation = simulation;
+		loadSimulation();
 
 		altitudePlot = plot(simAltitude, logAltitude,
 				trans.get("Wyvern.flightlog.axis.altitude") + " (" + distanceUnit.getUnit() + ")");
@@ -144,7 +160,7 @@ public class FlightLogDialog extends JDialog {
 		JFreeChart chart = new JFreeChart(null, JFreeChart.DEFAULT_TITLE_FONT, combined, false);
 		chart.setBackgroundPaint(UIManager.getColor("Panel.background"));
 		ChartPanel chartPanel = new ChartPanel(chart);
-		chartPanel.setPreferredSize(new Dimension(860, 380));
+		chartPanel.setPreferredSize(new Dimension(860, 320));
 		chartPanel.setMouseWheelEnabled(true);
 
 		tableModel = new DefaultTableModel(new String[] { trans.get("Wyvern.flightlog.col.metric"),
@@ -178,7 +194,7 @@ public class FlightLogDialog extends JDialog {
 		JButton closeButton = new JButton(trans.get("dlg.but.close"));
 		closeButton.addActionListener(e -> dispose());
 
-		JPanel panel = new JPanel(new MigLayout("fill, ins dialog", "[grow]", "[][grow][][][]"));
+		JPanel panel = new JPanel(new MigLayout("fill, ins dialog", "[grow]", "[][grow][][][][]"));
 		panel.add(openButton, "split 6");
 		panel.add(fileLabel, "growx, pushx, wmin 100");
 		panel.add(new JLabel(trans.get("Wyvern.flightlog.lbl.shift")), "gapleft para");
@@ -188,6 +204,7 @@ public class FlightLogDialog extends JDialog {
 		panel.add(chartPanel, "grow, wrap");
 		panel.add(new JLabel(legend()), "wrap");
 		panel.add(tableScroll, "growx, wrap");
+		panel.add(calibrationPanel(), "growx, wrap");
 		panel.add(warningLabel, "split 2, growx, pushx, wmin 100");
 		panel.add(closeButton, "right");
 		setContentPane(panel);
@@ -195,6 +212,184 @@ public class FlightLogDialog extends JDialog {
 		refresh();
 		GUIUtil.setDisposableDialogOptions(this, closeButton);
 		setLocationRelativeTo(owner);
+	}
+
+	/** Read the simulation's current results into the plot series and statistics. */
+	private void loadSimulation() {
+		FlightLog simulated = SimulationLog.of(simulation.getSimulatedData().getBranch(0));
+		simulatedStats = FlightLogStats.of(simulated);
+		simAltitude.clear();
+		simVelocity.clear();
+		for (int i = 0; i < simulated.size(); i++) {
+			simAltitude.add(simulated.getTime(i), distanceUnit.toUnit(simulated.getAltitude(i)), false);
+			simVelocity.add(simulated.getTime(i), velocityUnit.toUnit(simulated.getVelocity(i)), false);
+		}
+		simAltitude.fireSeriesChanged();
+		simVelocity.fireSeriesChanged();
+	}
+
+	////////  Calibration  ////////
+
+	private JPanel calibrationPanel() {
+		JPanel panel = new JPanel(new MigLayout("ins 0, fillx", "[][grow][][]"));
+		panel.setBorder(BorderFactory.createTitledBorder(trans.get("Wyvern.calibration.title")));
+
+		findDragButton.setToolTipText(trans.get("Wyvern.calibration.but.findDrag.ttip"));
+		findDragButton.addActionListener(e -> findDragScale());
+		useDragButton.addActionListener(e -> useDragScale());
+		applyChutesButton.setToolTipText(trans.get("Wyvern.calibration.but.applyChutes.ttip"));
+		applyChutesButton.addActionListener(e -> applyParachutes());
+
+		panel.add(new JLabel(trans.get("Wyvern.calibration.lbl.drag")));
+		panel.add(dragLabel, "growx, wmin 50");
+		panel.add(findDragButton, "sg calbut");
+		panel.add(useDragButton, "sg calbut, wrap");
+		panel.add(new JLabel(trans.get("Wyvern.calibration.lbl.chutes")), "top");
+		panel.add(chuteLabel, "growx, wmin 50");
+		panel.add(applyChutesButton, "skip 1, sg calbut, top, wrap");
+		JLabel hint = new JLabel(trans.get("Wyvern.calibration.lbl.hint"));
+		hint.setEnabled(false);
+		panel.add(hint, "span");
+		updateCalibration();
+		return panel;
+	}
+
+	/** The simulation's deployed recovery devices in the document's rocket, in order of deployment. */
+	private List<RecoveryDevice> deployedDevices() {
+		List<RecoveryDevice> devices = new ArrayList<>();
+		for (FlightEvent event : simulation.getSimulatedData().getBranch(0).getEvents()) {
+			if (event.getType() != FlightEvent.Type.RECOVERY_DEVICE_DEPLOYMENT || event.getSource() == null) {
+				continue;
+			}
+			RocketComponent component = simulation.getRocket().findComponent(event.getSource().getID());
+			if (component instanceof RecoveryDevice device && !devices.contains(device)) {
+				devices.add(device);
+			}
+		}
+		return devices;
+	}
+
+	private static double dragArea(RecoveryDevice device, double cd) {
+		return cd * device.getArea() * device.getInstanceCount();
+	}
+
+	/** Work out the parachute drag coefficients the measured descent rates call for. */
+	private void updateCalibration() {
+		chuteDevices.clear();
+		chuteCds.clear();
+		dragScale = Double.NaN;
+		dragLabel.setText(flightStats == null ? trans.get("Wyvern.calibration.lbl.needLog")
+				: trans.get("Wyvern.calibration.lbl.dragNotFound"));
+		findDragButton.setEnabled(flightStats != null);
+		useDragButton.setEnabled(false);
+
+		StringBuilder text = new StringBuilder("<html>");
+		if (flightStats != null) {
+			List<RecoveryDevice> devices = deployedDevices();
+			if (devices.size() == 1 && Double.isNaN(flightStats.drogueRate())) {
+				RecoveryDevice chute = devices.get(0);
+				suggest(text, chute, Calibration.parachuteCd(chute.getArea() * chute.getInstanceCount(),
+						dragArea(chute, chute.getCD()), 0, simulatedStats.mainRate(), flightStats.mainRate()));
+			} else if (devices.size() >= 2) {
+				RecoveryDevice drogue = devices.get(0);
+				RecoveryDevice main = devices.get(1);
+				double drogueCd = Calibration.parachuteCd(drogue.getArea() * drogue.getInstanceCount(),
+						dragArea(drogue, drogue.getCD()), 0, simulatedStats.drogueRate(), flightStats.drogueRate());
+				suggest(text, drogue, drogueCd);
+				// Under main both are open; the drogue keeps the drag it will have after calibration
+				double drogueAfter = dragArea(drogue, Double.isNaN(drogueCd) ? drogue.getCD() : drogueCd);
+				suggest(text, main, Calibration.parachuteCd(main.getArea() * main.getInstanceCount(),
+						dragArea(drogue, drogue.getCD()) + dragArea(main, main.getCD()), drogueAfter,
+						simulatedStats.mainRate(), flightStats.mainRate()));
+			}
+		}
+		if (chuteDevices.isEmpty()) {
+			text.append(trans.get(flightStats == null ? "Wyvern.calibration.lbl.needLog"
+					: "Wyvern.calibration.lbl.noChutes"));
+		}
+		chuteLabel.setText(text.append("</html>").toString());
+		applyChutesButton.setEnabled(!chuteDevices.isEmpty());
+	}
+
+	private void suggest(StringBuilder text, RecoveryDevice device, double cd) {
+		if (Double.isNaN(cd)) {
+			return;
+		}
+		chuteDevices.add(device);
+		chuteCds.add(cd);
+		if (chuteDevices.size() > 1) {
+			text.append("<br>");
+		}
+		text.append(String.format(Locale.ROOT, "%s: Cd %.3f \u2192 %.3f", device.getName(), device.getCD(), cd));
+	}
+
+	private void findDragScale() {
+		if (flightStats == null) {
+			return;
+		}
+		double target = flightStats.apogee();
+		findDragButton.setEnabled(false);
+		dragLabel.setText(trans.get("Wyvern.calibration.lbl.working"));
+		new SwingWorker<Double, Void>() {
+			@Override
+			protected Double doInBackground() throws Exception {
+				return Calibration.dragScaleForApogee(simulation, target);
+			}
+
+			@Override
+			protected void done() {
+				findDragButton.setEnabled(true);
+				try {
+					dragScale = get();
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					return;
+				} catch (ExecutionException e) {
+					dragScale = Double.NaN;
+					Throwable cause = e.getCause() != null ? e.getCause() : e;
+					dragLabel.setText(String.valueOf(cause.getMessage()));
+					return;
+				}
+				if (Double.isNaN(dragScale)) {
+					dragLabel.setText(trans.get("Wyvern.calibration.lbl.dragOutOfRange"));
+				} else {
+					dragLabel.setText(String.format(Locale.ROOT, trans.get("Wyvern.calibration.lbl.dragResult"),
+							dragScale, distanceUnit.toStringUnit(target)));
+				}
+				useDragButton.setEnabled(!Double.isNaN(dragScale));
+			}
+		}.execute();
+	}
+
+	private void useDragScale() {
+		if (Double.isNaN(dragScale)) {
+			return;
+		}
+		Calibration.setDragScale(simulation, dragScale);
+		document.setSaved(false);
+		rerun();
+	}
+
+	private void applyParachutes() {
+		if (chuteDevices.isEmpty()) {
+			return;
+		}
+		document.addUndoPosition(trans.get("Wyvern.calibration.undo"));
+		for (int i = 0; i < chuteDevices.size(); i++) {
+			chuteDevices.get(i).setCDAutomatic(false);
+			chuteDevices.get(i).setCD(chuteCds.get(i));
+		}
+		rerun();
+	}
+
+	/** Run the simulation again with the calibration in place and show the new result. */
+	private void rerun() {
+		SimulationRunDialog.runSimulations(this, document, simulation);
+		if (simulation.getSimulatedData() != null && simulation.getSimulatedData().getBranchCount() > 0) {
+			loadSimulation();
+		}
+		refresh();
+		updateCalibration();
 	}
 
 	private String legend() {
@@ -256,6 +451,7 @@ public class FlightLogDialog extends JDialog {
 			}
 			flight = log;
 			flightStats = FlightLogStats.of(log);
+			updateCalibration();
 			fileLabel.setText(file.getName() + " (" + log.getSource() + ")");
 			warningLabel.setText(log.getWarnings().isEmpty() ? " "
 					: "<html>" + String.join("<br>", log.getWarnings()) + "</html>");

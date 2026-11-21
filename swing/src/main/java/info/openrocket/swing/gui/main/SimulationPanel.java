@@ -259,7 +259,7 @@ public class SimulationPanel extends JPanel {
 		JButton flightLogButton = new IconButton(trans.get("Wyvern.flightlog.but.openDialog"), Icons.SIM_PLOT);
 		flightLogButton.setToolTipText(trans.get("Wyvern.flightlog.but.openDialog.ttip"));
 		flightLogButton.addActionListener(e -> FlightLogDialog.show(
-				SwingUtilities.getWindowAncestor(this), getSelectedSimulations()));
+				SwingUtilities.getWindowAncestor(this), document, getSelectedSimulations()));
 		wyvernRow.add(flightLogButton, "gapright para");
 		JButton windButton = new IconButton(trans.get("Wyvern.wind.but.open"), Icons.SIM_PLOT);
 		windButton.setToolTipText(trans.get("Wyvern.wind.but.open.ttip"));

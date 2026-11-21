@@ -101,6 +101,7 @@ open module info.openrocket.core {
 	exports info.openrocket.core.unit;
 	exports info.openrocket.core.util;
 	exports info.openrocket.core.wyvern.recovery;
+	exports info.openrocket.core.wyvern.rules;
 	exports info.openrocket.core.util.enums;
 	exports info.openrocket.core.utils;
 	exports info.openrocket.core.preferences;

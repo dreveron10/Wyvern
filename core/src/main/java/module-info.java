@@ -100,6 +100,7 @@ open module info.openrocket.core {
 	exports info.openrocket.core.thrustcurve;
 	exports info.openrocket.core.unit;
 	exports info.openrocket.core.util;
+	exports info.openrocket.core.wyvern.calibration;
 	exports info.openrocket.core.wyvern.flightlog;
 	exports info.openrocket.core.wyvern.map;
 	exports info.openrocket.core.wyvern.recovery;

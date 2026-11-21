@@ -96,6 +96,7 @@ import info.openrocket.swing.gui.components.StyledLabel;
 import info.openrocket.swing.gui.simulation.SimulationRunDialog;
 import info.openrocket.swing.gui.util.Icons;
 import info.openrocket.swing.gui.widgets.IconButton;
+import info.openrocket.swing.wyvern.flightlog.FlightLogDialog;
 import info.openrocket.swing.wyvern.recovery.RecoveryDialog;
 import info.openrocket.swing.file.SimulationTableCSVExport;
 import info.openrocket.swing.utils.TableRowTraversalPolicy;
@@ -241,7 +242,14 @@ public class SimulationPanel extends JPanel {
 		recoveryButton.setToolTipText(trans.get("Wyvern.recovery.but.open.ttip"));
 		recoveryButton.addActionListener(e -> RecoveryDialog.show(
 				SwingUtilities.getWindowAncestor(this), document, getSelectedSimulations()));
-		this.add(recoveryButton, "gapright para");
+		this.add(recoveryButton, "gapright rel");
+
+		//// Wyvern: overlay an altimeter log on the selected simulation
+		JButton flightLogButton = new IconButton(trans.get("Wyvern.flightlog.but.openDialog"), Icons.SIM_PLOT);
+		flightLogButton.setToolTipText(trans.get("Wyvern.flightlog.but.openDialog.ttip"));
+		flightLogButton.addActionListener(e -> FlightLogDialog.show(
+				SwingUtilities.getWindowAncestor(this), getSelectedSimulations()));
+		this.add(flightLogButton, "gapright para");
 
 		//// Delete simulations button
 		deleteButton = new IconButton();

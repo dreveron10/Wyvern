@@ -46,7 +46,9 @@ import javax.swing.SwingUtilities;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 
+import info.openrocket.core.document.Simulation;
 import info.openrocket.core.l10n.Translator;
+import info.openrocket.swing.wyvern.map.LandingMapDialog;
 import info.openrocket.core.simulation.montecarlo.DispersionStatistics;
 import info.openrocket.core.simulation.montecarlo.DispersionStatistics.DispersionEllipse;
 import info.openrocket.core.simulation.montecarlo.LandingBody;
@@ -146,6 +148,7 @@ public final class LandingDispersionResultsDialog extends JDialog {
 
 	private final String simulationName;
 	private final MonteCarloResult result;
+	private final Simulation mapSimulation;
 	private final Unit distanceUnit;
 	private final JComboBox<LandingBody> bodyCombo;
 	private final TextTitle chartSubtitle = new TextTitle("");
@@ -163,10 +166,20 @@ public final class LandingDispersionResultsDialog extends JDialog {
 	private double lastPlotHeight;
 
 	public LandingDispersionResultsDialog(Window owner, String simulationName, MonteCarloResult result) {
+		this(owner, simulationName, result, null);
+	}
+
+	/**
+	 * @param mapSimulation the simulation the result belongs to, used by Wyvern to show the
+	 *                      landings on a map around its launch site; null to leave the map out
+	 */
+	public LandingDispersionResultsDialog(Window owner, String simulationName, MonteCarloResult result,
+			Simulation mapSimulation) {
 		super(owner, String.format(trans.get("LandingDispersionResultsDlg.title"), simulationName),
 				ModalityType.APPLICATION_MODAL);
 		this.simulationName = simulationName;
 		this.result = result;
+		this.mapSimulation = mapSimulation;
 		this.distanceUnit = UnitGroup.UNITS_DISTANCE.getDefaultUnit();
 		this.bodyCombo = new JComboBox<>(result.getLandingBodies().toArray(new LandingBody[0]));
 		this.chart = createChart();
@@ -228,13 +241,21 @@ public final class LandingDispersionResultsDialog extends JDialog {
 		exportRunsButton.addActionListener(event -> exportCsv());
 		JButton closeButton = new JButton(trans.get("dlg.but.close"));
 		closeButton.addActionListener(event -> dispose());
-		JPanel buttons = new JPanel(new MigLayout("ins 0", "[grow][button][button][button]"));
+		JPanel buttons = new JPanel(new MigLayout("ins 0", "[grow][button][button][button][button]"));
 		buttons.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
 		JLabel runtimeLabel = new JLabel(String.format(trans.get("LandingDispersionResultsDlg.lbl.runtime"),
 				result.getElapsedMillis() / 1000.0));
 		runtimeLabel.setToolTipText(String.format(trans.get("LandingDispersionResultsDlg.lbl.runtime.ttip"),
 				result.getSettings().getRunCount()));
 		buttons.add(runtimeLabel, "growx");
+		if (mapSimulation != null) {
+			// Wyvern: landing points on a real map around the launch pad
+			JButton mapButton = new JButton(trans.get("Wyvern.map.but.open"));
+			mapButton.setToolTipText(trans.get("Wyvern.map.but.open.ttip"));
+			mapButton.addActionListener(event -> new LandingMapDialog(this, simulationName, result, mapSimulation)
+					.setVisible(true));
+			buttons.add(mapButton);
+		}
 		buttons.add(exportPlotButton);
 		buttons.add(exportRunsButton);
 		buttons.add(closeButton, "tag close");

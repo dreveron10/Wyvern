@@ -469,7 +469,7 @@ public final class LandingDispersionDialog extends JDialog {
 		}
 		saveSettings(settings);
 		dispose();
-		new LandingDispersionResultsDialog(owner, simulation.getName(), result).setVisible(true);
+		new LandingDispersionResultsDialog(owner, simulation.getName(), result, simulation).setVisible(true);
 	}
 
 	private void showInputError(String message) {
@@ -633,7 +633,7 @@ public final class LandingDispersionDialog extends JDialog {
 				LandingDispersionAnalysisCache.put(simulation, result);
 				worker = null;
 				dispose();
-				new LandingDispersionResultsDialog(owner, simulation.getName(), result).setVisible(true);
+				new LandingDispersionResultsDialog(owner, simulation.getName(), result, simulation).setVisible(true);
 			} catch (CancellationException exception) {
 				worker = null;
 				dispose();

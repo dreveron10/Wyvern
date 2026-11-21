@@ -1,0 +1,15 @@
+{
+  "name": "NASA Student Launch 2026-27",
+  "source": "Limits entered from recent Student Launch handbooks. Confirm each one against the current handbook before relying on it.",
+  "verified": false,
+  "rules": [
+    {"id": "ke-landing", "title": "Landing kinetic energy of each section", "metric": "LANDING_KINETIC_ENERGY", "comparison": "AT_MOST", "limit": 75, "unit": "ft-lbf", "warnMargin": 0.1},
+    {"id": "descent-time", "title": "Descent time from apogee", "metric": "DESCENT_TIME", "comparison": "AT_MOST", "limit": 100, "unit": "s", "warnMargin": 0.1},
+    {"id": "drift", "title": "Landing distance from the pad", "metric": "LANDING_DISTANCE", "comparison": "AT_MOST", "limit": 2500, "unit": "ft", "warnMargin": 0.1},
+    {"id": "apogee-min", "title": "Apogee, lower bound", "metric": "APOGEE", "comparison": "AT_LEAST", "limit": 4000, "unit": "ft", "warnMargin": 0.05},
+    {"id": "apogee-max", "title": "Apogee, upper bound", "metric": "APOGEE", "comparison": "AT_MOST", "limit": 6000, "unit": "ft", "warnMargin": 0.05},
+    {"id": "rail-exit-velocity", "title": "Velocity at rail exit", "metric": "RAIL_EXIT_VELOCITY", "comparison": "AT_LEAST", "limit": 52, "unit": "ft/s", "warnMargin": 0.1},
+    {"id": "rail-exit-stability", "title": "Static stability margin at rail exit", "metric": "RAIL_EXIT_STABILITY", "comparison": "AT_LEAST", "limit": 2.0, "unit": "cal", "warnMargin": 0.1},
+    {"id": "max-mach", "title": "Maximum Mach number", "metric": "MAX_MACH", "comparison": "AT_MOST", "limit": 1.0, "unit": "", "warnMargin": 0.1}
+  ]
+}

@@ -37,6 +37,8 @@ import info.openrocket.core.unit.UnitGroup;
 import info.openrocket.core.wyvern.recovery.RecoveryAnalyzer;
 import info.openrocket.core.wyvern.recovery.RecoveryReport;
 import info.openrocket.core.wyvern.recovery.RecoverySetup;
+import info.openrocket.core.wyvern.rules.RuleChecker;
+import info.openrocket.core.wyvern.rules.RuleSet;
 import info.openrocket.swing.gui.components.StyledLabel;
 import info.openrocket.swing.gui.util.GUIUtil;
 import info.openrocket.swing.wyvern.ui.RowTableModel;
@@ -57,6 +59,8 @@ public class RecoveryDialog extends JDialog {
 	private final Simulation simulation;
 	private final RecoverySetup setup;
 	private RecoveryReport report;
+	private final RuleSet ruleSet = RuleSet.loadBuiltIn(RuleSet.BUILT_IN.get(0));
+	private List<RuleChecker.Result> ruleResults = List.of();
 	private int branchIndex = 0;
 
 	private final Unit lengthUnit = UnitGroup.UNITS_LENGTH.getDefaultUnit();
@@ -79,6 +83,7 @@ public class RecoveryDialog extends JDialog {
 	private final RowTableModel<Integer> hardwareModel;
 	private final RowTableModel<Integer> chargeModel;
 	private final RowTableModel<Integer> batteryModel;
+	private final RowTableModel<RuleChecker.Result> ruleModel;
 	private int sectionPhaseColumns = -1;
 
 	/**
@@ -119,6 +124,7 @@ public class RecoveryDialog extends JDialog {
 		hardwareModel = new RowTableModel<>(indices(() -> setup.hardware), this::edited);
 		chargeModel = new RowTableModel<>(indices(() -> setup.chargeBays), this::edited);
 		batteryModel = new RowTableModel<>(indices(() -> setup.batteries), this::edited);
+		ruleModel = new RowTableModel<>(() -> ruleResults, null);
 
 		JPanel panel = new JPanel(new MigLayout("fill, ins dialog"));
 
@@ -144,6 +150,7 @@ public class RecoveryDialog extends JDialog {
 		tabs.addTab(trans.get("Wyvern.recovery.tab.hardware"), hardwareTab());
 		tabs.addTab(trans.get("Wyvern.recovery.tab.charges"), chargesTab());
 		tabs.addTab(trans.get("Wyvern.recovery.tab.batteries"), batteriesTab());
+		tabs.addTab(trans.get("Wyvern.rules.tab"), rulesTab());
 		panel.add(tabs, "grow, push, wrap para");
 
 		JButton close = new JButton(trans.get("dlg.but.close"));
@@ -276,6 +283,49 @@ public class RecoveryDialog extends JDialog {
 		return tab;
 	}
 
+	private JPanel rulesTab() {
+		JPanel tab = new JPanel(new MigLayout("fill"));
+		tab.add(new StyledLabel(ruleSet.name, 1f, StyledLabel.Style.BOLD), "growx, wrap");
+		String note = ruleSet.verified ? ruleSet.source
+				: trans.get("Wyvern.rules.unverified") + " " + ruleSet.source;
+		tab.add(new StyledLabel(note, -1f), "growx, wrap");
+		JTable table = RowTableModel.createTable(ruleModel);
+		tab.add(new JScrollPane(table), "grow, push");
+		ruleModel.addTableModelListener(e -> {
+			if (table.getColumnCount() > 0) {
+				table.getColumnModel().getColumn(0).setPreferredWidth(320);
+			}
+		});
+		return tab;
+	}
+
+	private String requirementText(RuleSet.Rule rule) {
+		String symbol = rule.comparison == RuleSet.Comparison.AT_MOST ? "\u2264" : "\u2265";
+		return (symbol + " " + RowTableModel.format(rule.limit) + " " + rule.unit).trim();
+	}
+
+	private String valueText(RuleChecker.Result result) {
+		if (Double.isNaN(result.value())) {
+			return "";
+		}
+		double shown = result.value() / RuleSet.UNITS.get(result.rule().unit);
+		return (RowTableModel.format(shown) + " " + result.rule().unit).trim();
+	}
+
+	/** Status as a symbol plus words, so it never depends on color. */
+	private String statusText(RuleChecker.Status status) {
+		switch (status) {
+		case PASS:
+			return "\u2713 " + trans.get("Wyvern.rules.status.pass");
+		case CLOSE:
+			return "\u26a0 " + trans.get("Wyvern.rules.status.close");
+		case FAIL:
+			return "\u2717 " + trans.get("Wyvern.rules.status.fail");
+		default:
+			return "? " + trans.get("Wyvern.rules.status.unknown");
+		}
+	}
+
 	////////  Columns  ////////
 
 	private void setColumns() {
@@ -324,6 +374,12 @@ public class RecoveryDialog extends JDialog {
 						i -> report.charges().get(i).separationForce(), null),
 				RowTableModel.number(trans.get("Wyvern.recovery.col.pinFactor"), null,
 						i -> report.charges().get(i).shearPinFactor(), null)));
+
+		ruleModel.setColumns(List.of(
+				RowTableModel.<RuleChecker.Result>text(trans.get("Wyvern.rules.col.rule"), r -> r.rule().title, null),
+				RowTableModel.<RuleChecker.Result>text(trans.get("Wyvern.rules.col.requirement"), r -> requirementText(r.rule()), null),
+				RowTableModel.<RuleChecker.Result>text(trans.get("Wyvern.rules.col.value"), this::valueText, null),
+				RowTableModel.<RuleChecker.Result>text(trans.get("Wyvern.rules.col.result"), r -> statusText(r.status()), null)));
 
 		batteryModel.setColumns(List.of(
 				RowTableModel.<Integer>text(trans.get("Wyvern.recovery.col.name"),
@@ -378,6 +434,7 @@ public class RecoveryDialog extends JDialog {
 	private void refresh() {
 		report = RecoveryAnalyzer.analyze(simulation.getSimulatedData().getBranch(branchIndex),
 				simulation.getActiveConfiguration(), setup);
+		ruleResults = RuleChecker.check(ruleSet, report, simulation.getSimulatedData().getBranch(branchIndex));
 
 		summaryLabel.setText("<html>" + String.join(" &nbsp;&nbsp;|&nbsp;&nbsp; ",
 				item("Wyvern.recovery.sum.apogee", distanceUnit, report.apogeeAltitude()),
@@ -420,6 +477,7 @@ public class RecoveryDialog extends JDialog {
 		hardwareModel.fireTableDataChanged();
 		chargeModel.fireTableDataChanged();
 		batteryModel.fireTableDataChanged();
+		ruleModel.fireTableDataChanged();
 	}
 
 	private String item(String key, Unit unit, double value) {

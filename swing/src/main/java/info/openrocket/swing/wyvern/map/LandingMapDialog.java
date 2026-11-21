@@ -48,6 +48,7 @@ import info.openrocket.core.unit.Unit;
 import info.openrocket.core.unit.UnitGroup;
 import info.openrocket.core.wyvern.map.GeoMath;
 import info.openrocket.core.wyvern.map.KmlWriter;
+import info.openrocket.core.wyvern.map.LaunchSite;
 import info.openrocket.swing.gui.util.GUIUtil;
 
 /**
@@ -73,6 +74,19 @@ public class LandingMapDialog extends JDialog {
 
 	private double padLatitude;
 	private double padLongitude;
+
+	/** Application preference keys: the saved launch sites and the field outline last drawn. */
+	private static final String PREF_SITES = "Wyvern.launchSites";
+	private static final String PREF_BOUNDARY = "Wyvern.map.fieldBoundary";
+	private static final int MAX_OFFLINE_TILES = 400;
+
+	private final TileProvider tiles = new TileProvider();
+	private List<LaunchSite> sites = new ArrayList<>();
+	private List<double[]> boundary = new ArrayList<>();
+	private boolean updatingSites = false;
+	private final JComboBox<String> siteCombo = new JComboBox<>();
+	private final JToggleButton drawField = new JToggleButton(trans.get("Wyvern.map.but.drawField"));
+	private final JLabel offlineLabel = new JLabel(" ");
 
 	private final MapPanel map;
 	private final JComboBox<String> bodyCombo = new JComboBox<>();
@@ -100,7 +114,12 @@ public class LandingMapDialog extends JDialog {
 		this.padLatitude = options.getLaunchLatitude();
 		this.padLongitude = options.getLaunchLongitude();
 
-		map = new MapPanel(new TileProvider(), padLatitude, padLongitude);
+		map = new MapPanel(tiles, padLatitude, padLongitude);
+		sites = LaunchSite.listFromJson(Application.getPreferences().getString(PREF_SITES, ""));
+		LaunchSite last = LaunchSite.fromJson(Application.getPreferences().getString(PREF_BOUNDARY, ""));
+		if (last != null) {
+			boundary = new ArrayList<>(last.boundary);
+		}
 		map.setPreferredSize(new Dimension(900, 560));
 		map.addLayer(this::paintOverlay);
 
@@ -120,11 +139,54 @@ public class LandingMapDialog extends JDialog {
 		latitudeField.addActionListener(e -> padFromFields());
 		longitudeField.addActionListener(e -> padFromFields());
 		pickPad.setToolTipText(trans.get("Wyvern.map.but.pickPad.ttip"));
-		pickPad.addActionListener(e -> map.setClickHandler(pickPad.isSelected() ? position -> {
-			setPad(position[0], position[1]);
+		pickPad.addActionListener(e -> {
+			drawField.setSelected(false);
+			map.setClickHandler(pickPad.isSelected() ? position -> {
+				setPad(position[0], position[1]);
+				pickPad.setSelected(false);
+				map.setClickHandler(null);
+			} : null);
+		});
+
+		drawField.setToolTipText(trans.get("Wyvern.map.but.drawField.ttip"));
+		drawField.addActionListener(e -> {
 			pickPad.setSelected(false);
-			map.setClickHandler(null);
-		} : null));
+			if (drawField.isSelected()) {
+				boundary = new ArrayList<>();
+				map.setClickHandler(position -> {
+					boundary.add(position);
+					refresh();
+				});
+			} else {
+				map.setClickHandler(null);
+				storeBoundary();
+			}
+			refresh();
+		});
+		JButton clearField = new JButton(trans.get("Wyvern.map.but.clearField"));
+		clearField.addActionListener(e -> {
+			boundary = new ArrayList<>();
+			storeBoundary();
+			refresh();
+		});
+		JButton saveSite = new JButton(trans.get("Wyvern.map.but.saveSite"));
+		saveSite.addActionListener(e -> saveSite());
+		JButton deleteSite = new JButton(trans.get("Wyvern.map.but.deleteSite"));
+		deleteSite.addActionListener(e -> deleteSite());
+		JButton offline = new JButton(trans.get("Wyvern.map.but.offline"));
+		offline.setToolTipText(trans.get("Wyvern.map.but.offline.ttip"));
+		offline.addActionListener(e -> saveForOffline());
+		updateSiteCombo(-1);
+		siteCombo.addActionListener(e -> {
+			int index = siteCombo.getSelectedIndex() - 1;
+			if (!updatingSites && index >= 0 && index < sites.size()) {
+				LaunchSite site = sites.get(index);
+				boundary = new ArrayList<>(site.boundary);
+				storeBoundary();
+				setPad(site.latitude, site.longitude);
+				fit();
+			}
+		});
 
 		JPanel layerRow = new JPanel(new MigLayout("ins 0"));
 		layerRow.add(new JLabel(trans.get("Wyvern.map.lbl.body")));
@@ -140,6 +202,16 @@ public class LandingMapDialog extends JDialog {
 		JPanel controls = new JPanel(new MigLayout("ins 0, fillx"));
 		controls.add(layerRow, "wrap");
 		controls.add(padRow, "wrap");
+		JPanel fieldRow = new JPanel(new MigLayout("ins 0"));
+		fieldRow.add(new JLabel(trans.get("Wyvern.map.lbl.site")));
+		fieldRow.add(siteCombo, "w 160lp");
+		fieldRow.add(saveSite);
+		fieldRow.add(deleteSite, "gapright para");
+		fieldRow.add(drawField);
+		fieldRow.add(clearField, "gapright para");
+		fieldRow.add(offline);
+		fieldRow.add(offlineLabel);
+		controls.add(fieldRow, "wrap");
 		controls.add(statsLabel, "growx");
 
 		JButton fit = new JButton(trans.get("Wyvern.map.but.fit"));
@@ -201,6 +273,90 @@ public class LandingMapDialog extends JDialog {
 		longitudeField.setText(String.format(Locale.ROOT, "%.6f", padLongitude));
 	}
 
+	////////  Field and sites  ////////
+
+	/** The field as it is now: current pad and the outline being shown. */
+	private LaunchSite field() {
+		LaunchSite field = new LaunchSite("", padLatitude, padLongitude);
+		field.boundary = boundary;
+		return field;
+	}
+
+	private void storeBoundary() {
+		Application.getPreferences().putString(PREF_BOUNDARY, field().toJson());
+	}
+
+	private void updateSiteCombo(int select) {
+		updatingSites = true;
+		siteCombo.removeAllItems();
+		siteCombo.addItem(trans.get("Wyvern.map.site.none"));
+		for (LaunchSite site : sites) {
+			siteCombo.addItem(site.name);
+		}
+		siteCombo.setSelectedIndex(select + 1);
+		updatingSites = false;
+	}
+
+	private void saveSite() {
+		int current = siteCombo.getSelectedIndex() - 1;
+		String suggestion = current >= 0 ? sites.get(current).name : "";
+		Object answer = JOptionPane.showInputDialog(this, trans.get("Wyvern.map.msg.siteName"),
+				trans.get("Wyvern.map.but.saveSite"), JOptionPane.PLAIN_MESSAGE, null, null, suggestion);
+		if (answer == null || answer.toString().isBlank()) {
+			return;
+		}
+		String name = answer.toString().trim();
+		LaunchSite site = new LaunchSite(name, padLatitude, padLongitude);
+		site.boundary = new ArrayList<>(boundary);
+		int index = -1;
+		for (int i = 0; i < sites.size(); i++) {
+			if (sites.get(i).name.equalsIgnoreCase(name)) {
+				index = i;
+			}
+		}
+		if (index >= 0) {
+			sites.set(index, site);
+		} else {
+			sites.add(site);
+			index = sites.size() - 1;
+		}
+		Application.getPreferences().putString(PREF_SITES, LaunchSite.listToJson(sites));
+		updateSiteCombo(index);
+	}
+
+	private void deleteSite() {
+		int index = siteCombo.getSelectedIndex() - 1;
+		if (index < 0 || index >= sites.size()) {
+			return;
+		}
+		if (JOptionPane.showConfirmDialog(this,
+				String.format(trans.get("Wyvern.map.msg.deleteSite"), sites.get(index).name),
+				trans.get("Wyvern.map.but.deleteSite"), JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) {
+			return;
+		}
+		sites.remove(index);
+		Application.getPreferences().putString(PREF_SITES, LaunchSite.listToJson(sites));
+		updateSiteCombo(-1);
+	}
+
+	/** Download the tiles of the current view, at this zoom and two levels closer, for use without a connection. */
+	private void saveForOffline() {
+		List<int[]> wanted = new ArrayList<>();
+		for (int z = map.getZoom(); z <= Math.min(map.getZoom() + 2, MapPanel.MAX_ZOOM); z++) {
+			wanted.addAll(map.visibleTiles(z));
+		}
+		if (wanted.size() > MAX_OFFLINE_TILES) {
+			JOptionPane.showMessageDialog(this, trans.get("Wyvern.map.msg.offlineTooLarge"),
+					trans.get("Wyvern.map.title"), JOptionPane.INFORMATION_MESSAGE);
+			return;
+		}
+		int total = wanted.size();
+		offlineLabel.setText(String.format(trans.get("Wyvern.map.lbl.offlineProgress"), 0, total));
+		tiles.prefetch(wanted, progress -> offlineLabel.setText(progress[0] < total
+				? String.format(trans.get("Wyvern.map.lbl.offlineProgress"), progress[0], total)
+				: String.format(trans.get("Wyvern.map.lbl.offlineDone"), progress[1], total)));
+	}
+
 	////////  Data  ////////
 
 	/** Indices of the bodies to show: the selected one, or all of them. */
@@ -227,9 +383,14 @@ public class LandingMapDialog extends JDialog {
 				continue;
 			}
 			DispersionStatistics stats = DispersionStatistics.from(points);
-			parts.add(String.format(trans.get("Wyvern.map.lbl.stats"), bodies.get(body).branchName(), points.size(),
+			String line = String.format(trans.get("Wyvern.map.lbl.stats"), bodies.get(body).branchName(), points.size(),
 					distanceUnit.toStringUnit(stats.getMeanRangeFromPad()),
-					distanceUnit.toStringUnit(stats.getContainmentRadius(0.9))));
+					distanceUnit.toStringUnit(stats.getContainmentRadius(0.9)));
+			double inside = field().fractionInside(padLatitude, padLongitude, points);
+			if (!Double.isNaN(inside) && !drawField.isSelected()) {
+				line += ", " + String.format(trans.get("Wyvern.map.lbl.inside"), Math.round(1000 * inside) / 10.0);
+			}
+			parts.add(line);
 		}
 		statsLabel.setText(parts.isEmpty() ? trans.get("Wyvern.map.lbl.noPoints") : String.join("   ", parts));
 		map.repaint();
@@ -250,6 +411,7 @@ public class LandingMapDialog extends JDialog {
 				}
 			}
 		}
+		positions.addAll(boundary);
 		if (positions.size() == 1) {
 			map.setZoom(15);
 			map.setCenter(padLatitude, padLongitude);
@@ -260,7 +422,44 @@ public class LandingMapDialog extends JDialog {
 
 	////////  Painting  ////////
 
+	private void paintField(Graphics2D g, MapPanel panel) {
+		if (boundary.isEmpty()) {
+			return;
+		}
+		Path2D outline = new Path2D.Double();
+		for (int i = 0; i < boundary.size(); i++) {
+			Point2D p = panel.toScreen(boundary.get(i)[0], boundary.get(i)[1]);
+			if (i == 0) {
+				outline.moveTo(p.getX(), p.getY());
+			} else {
+				outline.lineTo(p.getX(), p.getY());
+			}
+		}
+		Color amber = new Color(0xF2, 0xA3, 0x3A);
+		if (boundary.size() >= 3) {
+			outline.closePath();
+			g.setColor(new Color(amber.getRed(), amber.getGreen(), amber.getBlue(), 38));
+			g.fill(outline);
+		}
+		outlined(g, outline, amber, new BasicStroke(2.5f));
+		if (drawField.isSelected()) {
+			for (double[] vertex : boundary) {
+				Point2D p = panel.toScreen(vertex[0], vertex[1]);
+				Shape handle = new Rectangle2D.Double(p.getX() - 4, p.getY() - 4, 8, 8);
+				g.setColor(Color.WHITE);
+				g.fill(handle);
+				g.setColor(Color.BLACK);
+				g.setStroke(new BasicStroke(1f));
+				g.draw(handle);
+			}
+		} else if (boundary.size() >= 3) {
+			Point2D p = panel.toScreen(boundary.get(0)[0], boundary.get(0)[1]);
+			label(g, trans.get("Wyvern.map.field"), p.getX() + 6, p.getY() - 6);
+		}
+	}
+
 	private void paintOverlay(Graphics2D g, MapPanel panel) {
+		paintField(g, panel);
 		for (int body : shownBodies()) {
 			Color color = BODY_COLORS[body % BODY_COLORS.length];
 			List<LandingPoint> points = points(body);
